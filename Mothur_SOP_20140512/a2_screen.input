@@ -1,0 +1,6 @@
+###############      a2_screen.input    ##############
+screen.seqs(fasta=all.shhh.trim.unique.align, name=all.shhh.trim.names, group=all.shhh.groups, minlength=350, end=13125, start=2000, processors=8)
+summary.seqs(fasta=all.shhh.trim.unique.good.align, name=all.shhh.trim.good.names)
+filter.seqs(fasta=all.shhh.trim.unique.good.align, vertical=T, trump=., processors=8)
+unique.seqs(fasta=all.shhh.trim.unique.good.filter.fasta, name=all.shhh.trim.good.names)
+summary.seqs(fasta=all.shhh.trim.unique.good.filter.unique.fasta, name=all.shhh.trim.unique.good.filter.names)

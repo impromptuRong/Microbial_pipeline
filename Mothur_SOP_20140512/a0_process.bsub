@@ -1,0 +1,39 @@
+#!/bin/bash
+#BSUB -J all
+#BSUB -n 8  # only use > 1 proc if your perl app is parallel ie. threaded
+#BSUB -q c24 # request memory
+#BSUB -o all.%J.out # output file %J=job number
+#BSUB -e all.%J.err # output error file; %J=job number
+#echo 'working directory is ' $LS_SUBCWD
+#echo -n 'Executed on ' $LSB_HOSTS
+
+##### run my application
+#####   RDP  Classifier  #####
+/research/rr0311/software/jre1.7.0_09/bin/java -Xmx1g -jar /research/rr0311/software/rdp_classifier_2.5/rdp_classifier-2.5.jar -q all.shhh.trim.fasta -o all.shhh.trim.rdp.output -f fixrank
+perl /research/rr0311/Mothur_SOP/Mothur_SOP_20130616/RDP_transfer_mothur.pl all 80
+perl /research/rr0311/Mothur_SOP/Mothur_SOP_20130616/RDP.summary.pl all.shhh.trim.rdp.taxonomy.80
+#####   align sequences  #####
+/research/rr0311/software/mothur a1_align.input
+#####   trim sequences   #####
+/research/rr0311/software/mothur a2_screen.input
+#####   Don't forget to use length.distribution.r to check parameters  #####
+#####  denoise sequence  #####
+/research/rr0311/software/mothur a3_denoise.input
+perl /research/rr0311/Mothur_SOP/Mothur_SOP_20130616/fasta_coverage.check.pl all.final.redundant.fasta all.shhh.trim.fasta
+mkdir map
+mv *.map map
+mkdir shhh
+mv all.shhh.* shhh
+mv *.filter shhh
+cp ./shhh/*.shhh.trim.fasta ./
+#####  Don't forget to use coverage.check.r to check mean and sd  #####
+##### Otu cluster #####
+/research/rr0311/software/mothur a4_otu.input
+mkdir rabund
+mv *.rabund rabund
+#####  Generate sample based barcode.shhh.fasta and barcode.fin.fasta  #####
+perl /research/rr0311/Mothur_SOP/Mothur_SOP_20130616/mothur_barcode.sep.pl all
+#####  Taxonomy table, longest genera fasta(shhh), sequence dictionary, sampleID for unifrac #####
+perl /research/rr0311/Mothur_SOP/Mothur_SOP_20130616/mothur_summary.taxonomy.pl.20130616 all
+#####  OTU table, longest OTU fasta(shhh), sampleID for unifrac  #####
+perl /research/rr0311/Mothur_SOP/Mothur_SOP_20130616/mothur_summary.otu.pl.20130616 all

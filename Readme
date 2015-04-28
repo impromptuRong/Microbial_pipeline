@@ -1,0 +1,4 @@
+Dong's Lab microbiome and metagenomics pipeline. 
+Mothur: raw files -> count table
+The SOP used here is slightly different from official mothur pipeline. These 454 and Miseq pipelines are safer for removing noise and contaiminent sequences. It tries to keep much higher amount of good sequences than the official process with slightly higher noise rate. 
+Rscripts: statistical/ecology analysis and machine learning/data mining. The S3 source codes are highly rely on phyloseq packages. Check microbr for more robust and convinient S4 implementation for these analysis.

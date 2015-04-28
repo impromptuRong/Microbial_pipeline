@@ -1,0 +1,50 @@
+############   Get RDP result    ###########
+java -Xmx1g -jar /scratch/rr0311/sofrware/rdp_classifier-2.3/rdp_classifier-2.3.jar -q ocular.shhh.trim.fasta -o ocular.shhh.trim.rdp.output -f fixrank
+perl transfer.pl ocular
+
+mothur:
+############   Align sequences   ###########
+unique.seqs(fasta=ocular.shhh.trim.fasta)
+summary.seqs(fasta=ocular.shhh.trim.unique.fasta, name=ocular.shhh.trim.names)
+align.seqs(fasta=ocular.shhh.trim.unique.fasta, reference=silva.bacteria.fasta, processors=8)
+summary.seqs(fasta=ocular.shhh.trim.unique.align, name=ocular.shhh.trim.names)
+
+############   Screen and Filter sequences   ###########
+screen.seqs(fasta=ocular.shhh.trim.unique.align,name=ocular.shhh.trim.names,group=ocular.shhh.groups,optimize=start,criteria=90,end=13125,minlength=250,processors=8)
+
+############   check distribution of sequences  ##########
+#/scratch/rr0311/software/R-patched/bin/R CMD BATCH --nosave --args -ocular="$pro" -- length.distribution.R
+
+summary.seqs(fasta=ocular.shhh.trim.unique.good.align, name=ocular.shhh.trim.good.names)
+filter.seqs(fasta=ocular.shhh.trim.unique.good.align, vertical=T, trump=., processors=8)
+unique.seqs(fasta=ocular.shhh.trim.unique.good.filter.fasta, name=ocular.shhh.trim.good.names)
+summary.seqs(fasta=ocular.shhh.trim.unique.good.filter.unique.fasta,name=ocular.shhh.trim.unique.good.filter.names)
+###########   Merge sequences with differences smaller than 2 bp  ############
+pre.cluster(fasta=ocular.shhh.trim.unique.good.filter.unique.fasta, name=ocular.shhh.trim.unique.good.filter.names, group=ocular.shhh.good.groups, diffs=2)
+summary.seqs(fasta=ocular.shhh.trim.unique.good.filter.unique.precluster.fasta, name=ocular.shhh.trim.unique.good.filter.unique.precluster.names)
+
+###########   Removing chimeras   ##########
+chimera.uchime(fasta=ocular.shhh.trim.unique.good.filter.unique.precluster.fasta, name=ocular.shhh.trim.unique.good.filter.unique.precluster.names, group=ocular.shhh.good.groups, processors=8)
+remove.seqs(accnos=ocular.shhh.trim.unique.good.filter.unique.precluster.uchime.accnos, fasta=ocular.shhh.trim.unique.good.filter.unique.precluster.fasta, name=ocular.shhh.trim.unique.good.filter.unique.precluster.names, group=ocular.shhh.good.groups)
+summary.seqs(name=current)
+
+###########    Removing "contaminants"      ##################
+remove.lineage(fasta=ocular.shhh.trim.unique.good.filter.unique.precluster.pick.fasta, name=ocular.shhh.trim.unique.good.filter.unique.precluster.pick.names, group=ocular.shhh.good.pick.groups, taxonomy=ocular.shhh.trim.rdp.taxonomy.80, taxon=Bacteria(90);)
+system(cp ocular.shhh.trim.rdp.taxonomy.pick.80 ocular.final.rdp.taxonomy.80)
+system(cp ocular.shhh.trim.unique.good.filter.unique.precluster.pick.pick.names ocular.final.names)
+system(cp ocular.shhh.trim.unique.good.filter.unique.precluster.pick.pick.fasta ocular.final.unique.fasta)
+system(cp ocular.shhh.good.pick.pick.groups ocular.final.groups)
+deunique.seqs(fasta=ocular.final.unique.fasta, name=ocular.final.names)
+summary.seqs(fasta=ocular.final.redundant.fasta)
+
+###########   Cluster OTU   ##########
+dist.seqs(fasta=ocular.final.unique.fasta, cutoff=0.15, processors=8)
+cluster(column=ocular.final.unique.dist, name=ocular.final.names, method=average)
+make.shared(list=ocular.final.unique.an.list, group=ocular.final.groups, label=0.03)
+classify.otu(list=ocular.final.unique.an.list, name=ocular.final.names, taxonomy=ocular.final.rdp.taxonomy.80, label=0.03, cutoff=80)
+get.otulist(list=ocular.final.unique.an.list)
+
+###########  seperate fasta file and generate matrix  #############
+perl summary.genera.pl
+perl summary.otu.pl ocular
+

@@ -1,0 +1,195 @@
+#! usr/bin/perl
+#! use strict; use warnings;
+use List::Util qw/shuffle/;
+
+$file = $ARGV[0];
+print "#################\nOTU\n";
+print "Generate OTU Level Hash: Barcode + Taxonomy ... \n";
+
+open(GRP, "<./$file.otu.groups") or die "Failed to open Groups File\n";
+local $/ = "\n";
+my %S;
+my %G;
+while(<GRP>){
+	chomp;
+	my ($seqname,$bar) = split(/\t/);
+	$S{$seqname}{"barcode"} = $bar;
+	$G{$bar}{$seqname} = 1;
+}
+close GRP;
+my @bararray = sort keys %G;
+
+opendir(DIRFASTA,"./barcode.shhh.fasta") or die "Failed to open Fasta Folder\n";
+my @fastafile = readdir(DIRFASTA);
+closedir DIRFASTA;
+foreach my $filename(@fastafile){
+	if($filename =~ /fasta/){
+		open(FASTA, "<./barcode.shhh.fasta/$filename") or die "Failed to open Fasta File\n";
+		local $/ = ">";
+		$_ = <FASTA>;
+		while(<FASTA>){
+			chomp;
+			my @array = split(/\n+/);
+			my ($seqname,$info) = split(/\t/,shift(@array));
+			my $seq = join("",@array);
+			$S{$seqname}{"seq"} = $seq;
+			my $tseq = $seq;
+			$tseq =~ s/\s|-|\.//g;
+			$tseq =~ s/U/T/g;
+			$tseq =~ s/u/t/g;
+			$S{$seqname}{"length"} = length($tseq);
+			$S{$seqname}{"taxinfo"} = $info;
+		}
+		close FASTA;
+	}
+}
+
+my $dec = 1;
+my @taxarray;
+open(TAX, "<./$file.otu.unique.an.0.03.cons.taxonomy") or die "Failed to open Taxonomy File\n";
+my %info;
+$_ = <TAX>;
+foreach (<TAX>){
+	chomp;
+	my @tmp = split(/\t/);
+	my $otu = $tmp[0];
+	if($otu !~ /Otu/){	$otu = sprintf("Otu%04d",$tmp[0]);	}
+	$dec = length($otu)-3;
+	my $total = $tmp[1];
+	$tmp[2] =~ s/"//g;
+	$tmp[2] =~ s/;/,/g;
+	my $index = join("", $tmp[2], $total);
+	$info{$otu} = $index;
+}
+close TAX;
+print "OTU Level Hash ... Done!!\n";
+
+
+open(EXCEL, ">./summary.otu.table.csv") or die "Failed to open OTU Summary Table File\n";
+open(RCSV, ">./$file.summary.otu.csv") or die "Failed to open OTU R-CSV File\n";
+open(DIC, ">./dic.otu.csv") or die "Failed to open OTU Dictionary File\n";
+print DIC "Tax_ID,OTU,Domain,Phylum,Class,Order,Family,Genus";
+print EXCEL "Tax_ID,OTU,Domain,Phylum,Class,Order,Family,Genus,Sum";
+foreach my $barcode(@bararray){print EXCEL ",", $barcode;}
+print RCSV "Sam_ID";
+
+open(OTU, "<./$file.otu.unique.an.0.03.otu") or die "Failed to open OTU list File\n";
+open(FSA, ">./otu.tree.fsa") or die "Failed to open OTU Tree-FSA File\n";
+open(SID, ">./$file.otu.sampleID") or die "Failed to open OTU SampleID File\n";
+open(SEQ, ">./seq.otu") or die "Failed to open OTU Sequence File\n";
+local $/ = "\n";
+while(<OTU>){
+	chomp;
+	my ($otu,$tmp) = split(/\t/);
+	my @seqarray = split(/,/,$tmp);
+	if($otu !~ /Otu/){	$otu = sprintf("Otu%0${dec}d",$otu);	}
+	my $otuinfo = $info{$otu};
+
+		my @tmp = split(/,/, $otuinfo);
+		my $sum = $tmp[6];
+		my $genus = $tmp[5];
+		my $family = $tmp[4];
+		my $order = $tmp[3];
+		my $class = $tmp[2];
+		my $phylum = $tmp[1];
+		my $domain = $tmp[0];
+
+		my @tmp = split(/\(/, $genus);
+		$genus = $tmp[0];
+		my @tmp = split(/\(/, $family);
+		$family = $tmp[0];
+		my @tmp = split(/\(/, $order);
+		$order = $tmp[0];
+		my @tmp = split(/\(/, $class);
+		$class = $tmp[0];
+		my @tmp = split(/\(/, $phylum);
+		$phylum = $tmp[0];
+		my @tmp = split(/\(/, $domain);
+		$domain = $tmp[0];
+
+		$genus =~ s/[^a-zA-Z0-9]/_/g;
+		$family =~ s/[^a-zA-Z0-9]/_/g;
+		$order =~ s/[^a-zA-Z0-9]/_/g;
+		$class =~ s/[^a-zA-Z0-9]/_/g;
+		$phylum =~ s/[^a-zA-Z0-9]/_/g;
+		$domain =~ s/[^a-zA-Z0-9]/_/g;
+
+	print EXCEL "\n", $otu, ",", $otu, ",", $otuinfo;
+	print DIC "\n$otu,$otu,$domain,$phylum,$class,$order,$family,$genus";
+	print RCSV ",", $otu;
+	push(@taxarray, $otu);
+
+	my @tmp = split(/,/, $otuinfo);
+	my $last = $tmp[-2];
+	my @tmp = split(/\(/, $last);
+	my $otugenera = $tmp[0];
+#print "\n",$otu,"\t",$otugenera,"\t";
+
+	my %otuline;
+	my $lseq;
+	
+	foreach my $seqname(@seqarray){
+		print SEQ $S{$seqname}{"barcode"}, "\t", $seqname, "\t", $otu, "\n";
+		$otuline{$S{$seqname}{"barcode"}} += 1;
+			my $taxinfo = $S{$seqname}{"taxinfo"};
+			my @tmp = split(/;/, $taxinfo);
+			my $last = $tmp[-1];
+			my @tmp = split(/\(/, $last);
+			my $fsagenera = $tmp[0];
+#print "^",$last,"^",$fsagenera,"-";
+		if(($fsagenera eq $otugenera) and ($S{$seqname}{"length"} > length($lseq))){
+			$lseq = $S{$seqname}{"seq"};
+		}
+	}
+	if($lseq){	print FSA ">", $otu, "\n", $lseq, "\n";	}
+	foreach my $barcode(@bararray){
+		print EXCEL ",";
+		print CSV ",";
+		if(exists($otuline{$barcode})){
+			print EXCEL $otuline{$barcode};
+			$G{$barcode}{$otu} = $otuline{$barcode};
+			if($lseq){	print SID $otu,"\t",$barcode,"\t",$otuline{$barcode},"\n";	}
+		}
+		else{
+			print EXCEL 0;
+			$G{$barcode}{$otu} = 0;
+		}
+	}
+}
+close OTU;
+close EXCEL;
+close FSA;
+close SID;
+close DIC;
+close SEQ;
+
+foreach my $barcode(@bararray){
+	print RCSV "\n", $barcode;
+	foreach my $otu(@taxarray){
+		print RCSV ",", $G{$barcode}{$otu};
+	}
+}
+close RCSV;
+print "OTU Level Summary Output ... Done!!\n\n";
+
+###############    Tree    ###############
+open(BSUB,">./tree.otu.bsub") or die $!;
+print BSUB "#!/bin/bash\n",
+"#BSUB -J tree.otu\n",
+"#BSUB -n 8 # request 8 CPUs\n",
+"#BSUB -q c24 # request memory\n",
+"#BSUB -o tre.\%J.out # output file \%J=job number\n",
+"#BSUB -e tre.\%J.err # output error file; \%J=job number\n\n",
+
+"##### run my application\n",
+"/research/rr0311/software/clustalw2 -INFILE=otu.tree.fsa -EXCELFILE=otu.tree.fasta -EXCELPUT=FASTA\n",
+"rm otu.tree.dnd\n",
+"/research/rr0311/software/mothur \"#dist.seqs(fasta=otu.tree.fasta,calc=onegap,output=lt,processors=8);clearcut(phylip=otu.tree.phylip.dist)\"\n",
+"mv otu.tree.phylip.tre $file.otu.tre\n",
+"cp $file.otu.tre $file.otu.tre.trans\n",
+"zip -m $file.otu.tre.zip $file.otu.tre\n",
+"zip -m $file.otu.sampleID.zip $file.otu.sampleID\n",
+"zip -m $file.otu.zip summary.otu.table.csv $file.summary.otu.csv dic.otu.csv $file.otu.sampleID.zip $file.otu.tre.zip $file.otu.tre.trans";
+
+close BSUB;
+system("bsub < tree.otu.bsub");

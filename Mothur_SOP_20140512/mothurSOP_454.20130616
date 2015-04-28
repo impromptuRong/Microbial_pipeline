@@ -1,0 +1,140 @@
+######################################################################################################
+##########################        Donglab Mothur SOP   v2013.04.16     ###############################
+######################################################################################################
+##################################     Mothur Raw File Process    ####################################
+######################################################################################################
+
+/research/rr0311/software/mothur *.input
+###############      foreach *.input      ###############
+###############      Getting started      ###############
+sffinfo(sff=*.sff, flow=T)
+summary.seqs(fasta=*.fasta)
+###############      Reducing  Error      ###############
+trim.flows(flow=*.flow, oligos=*.oligos, minflows=360, maxflows=720, pdiffs=0, bdiffs=0, processors=8)
+shhh.flows(file=*.flow.files, processors=8)
+trim.seqs(fasta=*.shhh.fasta, name=*.shhh.names, oligos=*.oligos, pdiffs=0, bdiffs=0, maxhomop=8, minlength=200, flip=T, processors=8)
+summary.seqs(fasta=*.shhh.trim.fasta, name=*.shhh.trim.names)
+deunique.seqs(fasta=*.shhh.trim.fasta, name=*.shhh.trim.names)
+#########################################################
+##########     Combine fasta & group file     ###########
+cat *.shhh.trim.redundant.fasta > all.shhh.trim.fasta
+cat *.shhh.groups > all.shhh.groups
+#########################################################
+
+######################################################################################################
+##################################     Mothur High Quality SOP    ####################################
+######################################################################################################
+##################################################################
+###############    RDP Classifier and transform   ################
+##########     RunCombine fasta & group file     ###########
+/research/rr0311/software/jre1.7.0_09/bin/java -Xmx1g -jar /research/rr0311/software/rdp_classifier_2.5/rdp_classifier-2.5.jar -q all.shhh.trim.fasta -o all.shhh.trim.rdp.output -f fixrank
+perl /research/rr0311/Mothur_SOP/Mothur_SOP_2013.04.16/RDP_transfer_mothur.pl all 80
+#####   OPTIONAL: check RDP score distribution  #####
+perl /research/rr0311/Mothur_SOP/Mothur_SOP_2013.04.16/RDP.summary.pl all.shhh.trim.rdp.taxonomy.80
+##################################################################
+
+########################################################
+###############      align sequence     ################
+/research/rr0311/software/mothur a1_align.input
+###############      a1_align.input     ################
+unique.seqs(fasta=all.shhh.trim.fasta)
+summary.seqs(fasta=all.shhh.trim.unique.fasta, name=all.shhh.trim.names)
+align.seqs(fasta=all.shhh.trim.unique.fasta, reference=/research/rr0311/Mothur_SOP/silva.bacteria.fasta, processors=8)
+summary.seqs(fasta=all.shhh.trim.unique.align, name=all.shhh.trim.names)
+########################################################
+
+########################################################
+###############     trim sequences     #################
+/research/rr0311/software/mothur a2_screen.input
+###############      a2_screen.input    ################
+screen.seqs(fasta=all.shhh.trim.unique.align, name=all.shhh.trim.names, group=all.shhh.groups, minlength=350, end=13125, start=2000, processors=8)
+summary.seqs(fasta=all.shhh.trim.unique.good.align, name=all.shhh.trim.good.names)
+filter.seqs(fasta=all.shhh.trim.unique.good.align, vertical=T, trump=., processors=8)
+unique.seqs(fasta=all.shhh.trim.unique.good.filter.fasta, name=all.shhh.trim.good.names)
+summary.seqs(fasta=all.shhh.trim.unique.good.filter.unique.fasta,name=all.shhh.trim.unique.good.filter.names)
+######    check parameters in screen.seqs   ############
+length.distribution.r
+######    all.shhh.trim.unique.summary
+######    all.shhh.trim.unique.good.summary
+######    find out the optimized parameter from figure    ######
+######    Go back to screen.seqs with new parameter       ######
+################################################################
+
+########################################################
+###############     denoise sequence    ################
+/research/rr0311/software/mothur a3_denoise.input
+#########    Check length coverage     ############
+perl /research/rr0311/Mothur_SOP/Mothur_SOP_2013.04.16/fasta_coverage.check.pl all.final.redundant.fasta all.shhh.trim.fasta
+#########       check mean and sd       ###########
+coverage.check.r
+
+##############       a3_denoise.input     ##############
+pre.cluster(fasta=all.shhh.trim.unique.good.filter.unique.fasta, name=all.shhh.trim.unique.good.filter.names, group=all.shhh.good.groups, diffs=2)
+summary.seqs(fasta=all.shhh.trim.unique.good.filter.unique.precluster.fasta, name=all.shhh.trim.unique.good.filter.unique.precluster.names)
+chimera.uchime(fasta=all.shhh.trim.unique.good.filter.unique.precluster.fasta, name=all.shhh.trim.unique.good.filter.unique.precluster.names, group=all.shhh.good.groups, processors=8)
+remove.seqs(accnos=all.shhh.trim.unique.good.filter.unique.precluster.uchime.accnos, fasta=all.shhh.trim.unique.good.filter.unique.precluster.fasta, name=all.shhh.trim.unique.good.filter.unique.precluster.names, group=all.shhh.good.groups)
+summary.seqs(name=current)
+deunique.seqs(fasta=all.shhh.trim.unique.good.filter.unique.precluster.pick.fasta, name=all.shhh.trim.unique.good.filter.unique.precluster.pick.names)
+###########      Removing "contaminants"      ##########
+get.lineage(fasta=all.shhh.trim.redundant.fasta, group=all.shhh.good.pick.groups, taxonomy=all.shhh.trim.rdp.taxonomy.80, taxon=Bacteria(80);)
+unique.seqs(fasta=all.shhh.trim.redundant.pick.fasta)
+system(cp all.shhh.trim.rdp.taxonomy.pick.80 all.final.rdp.taxonomy.80)
+system(cp all.shhh.trim.redundant.pick.unique.fasta all.final.unique.fasta)
+system(cp all.shhh.trim.redundant.pick.names all.final.names)
+system(cp all.shhh.trim.redundant.pick.fasta all.final.redundant.fasta)
+system(cp all.shhh.good.pick.pick.groups all.final.groups)
+summary.seqs(fasta=all.final.redundant.fasta)
+########################################################
+###########     Organize Redundant Files      ##########
+mkdir map
+mv *.map map
+mkdir shhh
+mv all.shhh.* shhh
+mv *.filter shhh
+cp ./shhh/*.shhh.trim.fasta ./
+########################################################
+
+########################################################
+################      OTU Cluster     ##################
+/research/rr0311/software/mothur a4_otu.input
+
+##############    a4_otu.input   ###############
+###########    Get OTU Samples    ##########
+get.groups(group=all.final.groups,accnos=0.otu.sample,fasta=all.final.redundant.fasta,taxonomy=all.final.rdp.taxonomy.80)
+unique.seqs(fasta=all.final.redundant.pick.fasta)
+system(mv all.final.pick.groups all.otu.groups)
+system(mv all.final.rdp.taxonomy.pick.80 all.otu.rdp.taxonomy.80)
+system(mv all.final.redundant.pick.fasta all.otu.redundant.fasta)
+system(mv all.final.redundant.pick.unique.fasta all.otu.unique.fasta)
+system(mv all.final.redundant.pick.names all.otu.names)
+###########   Classify into OTU   ##########
+dist.seqs(fasta=all.otu.unique.fasta, cutoff=0.15, processors=8)
+cluster(column=all.otu.unique.dist, name=all.otu.names, method=average)
+make.shared(list=all.otu.unique.an.list, group=all.otu.groups, label=0.03)
+classify.otu(list=all.otu.unique.an.list, name=all.otu.names, taxonomy=all.otu.rdp.taxonomy.80, label=0.03, cutoff=80)
+get.otulist(list=all.otu.unique.an.list)
+###########    alpha diversity    ##########
+#collect.single(shared=all.otu.unique.an.shared, calc=ace-sobs-chao-invsimpson-shannon, freq=1)
+#rarefaction.single(shared=all.otu.unique.an.shared, freq=1)
+#summary.single(shared=all.otu.unique.an.shared, calc=nseqs-coverage-sobs-invsimpson)
+###########    beta diversity     ##########
+#heatmap.sim(shared=all.otu.unique.an.sorted.shared, calc=braycurtis, fontsize=100)
+#venn(shared=all.otu.unique.an.shared, groups=)
+#summary.shared(shared=all.otu.unique.an.shared, calc=sharedchao, groups=1A-1ANoGenPhi)
+#tree.shared(shared=all.otu.unique.an.shared, calc=braycurtis)
+########################################################
+
+###########     Organize Redundant Files      ##########
+mkdir rabund
+mv *.rabund rabund
+########################################################
+
+########################################################
+#################    Matrix and Tree   #################
+#####  Generate sample based barcode.shhh.fasta and barcode.fin.fasta  #####
+perl /research/rr0311/Mothur_SOP/Mothur_SOP_2013.04.16/mothur_barcode.sep.pl all
+#####  Taxonomy table, longest genera fasta(shhh), sequence dictionary, sampleID for unifrac #####
+perl /research/rr0311/Mothur_SOP/Mothur_SOP_2013.04.16/mothur_summary.taxonomy.pl.20130416 all
+#####  OTU table, longest OTU fasta(shhh), sampleID for unifrac  #####
+perl /research/rr0311/Mothur_SOP/Mothur_SOP_2013.04.16/mothur_summary.otu.pl.20130416 all
+########################################################

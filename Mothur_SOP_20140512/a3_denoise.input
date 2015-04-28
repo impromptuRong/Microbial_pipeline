@@ -1,0 +1,17 @@
+##############       a3_denoise.input   ##############
+pre.cluster(fasta=all.shhh.trim.unique.good.filter.unique.fasta, name=all.shhh.trim.unique.good.filter.names, group=all.shhh.good.groups, diffs=2)
+summary.seqs(fasta=all.shhh.trim.unique.good.filter.unique.precluster.fasta, name=all.shhh.trim.unique.good.filter.unique.precluster.names)
+###########   Removing chimeras   ##########
+chimera.uchime(fasta=all.shhh.trim.unique.good.filter.unique.precluster.fasta, name=all.shhh.trim.unique.good.filter.unique.precluster.names, group=all.shhh.good.groups, processors=8)
+remove.seqs(accnos=all.shhh.trim.unique.good.filter.unique.precluster.uchime.accnos, fasta=all.shhh.trim.unique.good.filter.unique.precluster.fasta, name=all.shhh.trim.unique.good.filter.unique.precluster.names, group=all.shhh.good.groups)
+summary.seqs(name=current)
+deunique.seqs(fasta=all.shhh.trim.unique.good.filter.unique.precluster.pick.fasta, name=all.shhh.trim.unique.good.filter.unique.precluster.pick.names)
+###########    Removing "contaminants"      ##########
+get.lineage(fasta=all.shhh.trim.redundant.fasta, group=all.shhh.good.pick.groups, taxonomy=all.shhh.trim.rdp.taxonomy.80, taxon=Bacteria(80);)
+unique.seqs(fasta=all.shhh.trim.redundant.pick.fasta)
+system(cp all.shhh.trim.rdp.taxonomy.pick.80 all.final.rdp.taxonomy.80)
+system(cp all.shhh.trim.redundant.pick.unique.fasta all.final.unique.fasta)
+system(cp all.shhh.trim.redundant.pick.names all.final.names)
+system(cp all.shhh.trim.redundant.pick.fasta all.final.redundant.fasta)
+system(cp all.shhh.good.pick.pick.groups all.final.groups)
+summary.seqs(fasta=all.final.redundant.fasta)

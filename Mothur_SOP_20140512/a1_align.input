@@ -1,0 +1,5 @@
+###############      a1_align.input     ##############
+unique.seqs(fasta=all.shhh.trim.fasta)
+summary.seqs(fasta=all.shhh.trim.unique.fasta, name=all.shhh.trim.names)
+align.seqs(fasta=all.shhh.trim.unique.fasta, reference=/research/rr0311/Mothur_SOP/silva.bacteria.fasta, processors=8)
+summary.seqs(fasta=all.shhh.trim.unique.align, name=all.shhh.trim.names)

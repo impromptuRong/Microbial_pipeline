@@ -1,0 +1,202 @@
+#! usr/bin/perl
+#! use strict; use warnings;
+###########  Read in List files  ##############
+
+$file = $ARGV[0];
+$level = $ARGV[1];
+
+opendir(DIRFASTA,"./barcode.shhh.fasta") or die "Cannot Open fasta Dir!";
+my @fastafile = readdir(DIRFASTA);
+closedir DIRFASTA;
+my %B;
+my %RDP;
+open(GENUS, ">seq.genus" );
+open(FAMILY,">seq.family");
+open(ORDER, ">seq.order" );
+open(CLASS, ">seq.class" );
+open(PHYLUM,">seq.phylum");
+foreach my $filename(@fastafile){
+if($filename =~ /fasta/){
+	open(OFSA,"<./barcode.shhh.fasta/$filename") or die "Cannot open shhh $filename\n";
+	my @tmp = split(/\./,$filename);
+	pop(@tmp);
+	my $bar = join(".",@tmp);
+	local $/ = ">";
+	$_ = <OFSA>;
+	while(<OFSA>){
+		chomp;
+		my @array = split(/\n+/);
+		my ($seqname,$info) = split(/\t/,shift(@array));
+		my $seq = join("",@array);
+		$seq=~ s/\s|-|\.//g;
+		$B{$bar}{$seqname}{"seq"} = $seq;
+
+		$info =~ s/"//g;
+		my @tmp = split(/;/,$info);
+		my $genus = $tmp[-1];
+		my $family = $tmp[-2];
+		my $order = $tmp[-3];
+		my $class = $tmp[-4];
+		my $phylum = $tmp[-5];
+
+		my @tmp = split(/\(/,$genus);
+		$genus = $tmp[0];
+		my @tmp = split(/\(/,$family);
+		$family = $tmp[0];
+		my @tmp = split(/\(/,$order);
+		$order = $tmp[0];
+		my @tmp = split(/\(/,$class);
+		$class = $tmp[0];
+		my @tmp = split(/\(/,$phylum);
+		$phylum = $tmp[0];
+
+#		if($genus eq "unclassified"){	$B{$bar}{$seqname}{"genus"} =$genus;}else{$B{$bar}{$seqname}{"genus"} =$genus;	}
+#		if($family eq "unclassified"){	$B{$bar}{$seqname}{"family"}=$genus;}else{$B{$bar}{$seqname}{"family"}=$family;	}
+#		if($order eq "unclassified"){	$B{$bar}{$seqname}{"order"} =$genus;}else{$B{$bar}{$seqname}{"order"} =$order;	}
+#		if($class eq "unclassified"){	$B{$bar}{$seqname}{"class"} =$genus;}else{$B{$bar}{$seqname}{"class"} =$class;	}
+#		if($phylum eq "unclassified"){  $B{$bar}{$seqname}{"phylum"}=$genus;}else{$B{$bar}{$seqname}{"phylum"}=$phylum;	}
+
+		$genus = $genus eq "unclassified" ? $genus : $genus;
+		$family = $family eq "unclassified" ? $genus : $family;
+		$order = $order eq "unclassified" ? $family : $order;
+		$class = $class eq "unclassified" ? $order : $class;
+		$phylum = $phylum eq "unclassified" ? $class : $phylum;
+
+		$RDP{"genus"}{$genus} = join(",", "Bacteria", $phylum, $class, $order, $family, $genus);
+		$RDP{"family"}{$family} = join(",", "Bacteria", $phylum, $class, $order, $family);
+		$RDP{"order"}{$order} = join(",", "Bacteria", $phylum, $class, $order);
+		$RDP{"class"}{$class} = join(",", "Bacteria", $phylum, $class);
+		$RDP{"phylum"}{$phylum} = join(",", "Bacteria", $phylum);
+
+		$B{$bar}{$seqname}{"genus"} = $genus;
+		$B{$bar}{$seqname}{"family"}= $family;
+		$B{$bar}{$seqname}{"order"} = $order;
+		$B{$bar}{$seqname}{"class"} = $class;
+		$B{$bar}{$seqname}{"phylum"}= $phylum;
+
+print GENUS  $bar,"\t",$seqname,"\t",$B{$bar}{$seqname}{"genus"},"\n";
+print FAMILY $bar,"\t",$seqname,"\t",$B{$bar}{$seqname}{"family"},"\n";
+print ORDER  $bar,"\t",$seqname,"\t",$B{$bar}{$seqname}{"order"},"\n";
+print CLASS  $bar,"\t",$seqname,"\t",$B{$bar}{$seqname}{"class"},"\n";
+print PHYLUM $bar,"\t",$seqname,"\t",$B{$bar}{$seqname}{"phylum"},"\n";
+	}
+	close OFSA;
+}
+}
+close GENUS;
+close FAMILY;
+close ORDER;
+close CLASS;
+close PHYLUM;
+
+$RDP{"genus"}{"unclassified"} = join(",", "Bacteria", "unclassified", "unclassified", "unclassified", "unclassified", "unclassified");
+$RDP{"family"}{"unclassified"} = join(",", "Bacteria", "unclassified", "unclassified", "unclassified", "unclassified");
+$RDP{"order"}{"unclassified"} = join(",", "Bacteria", "unclassified", "unclassified", "unclassified");
+$RDP{"class"}{"unclassified"} = join(",", "Bacteria", "unclassified", "unclassified");
+$RDP{"phylum"}{"unclassified"} = join(",", "Bacteria", "unclassified");
+
+######################     Generate Matrix and Tree    ######################
+my @levelarray = ("phylum","class","order","family","genus");
+for(my $leveli=0; $leveli<scalar(@levelarray); $leveli++){
+	my $level = $levelarray[$leveli];
+print "#################\n",$level,"\n";
+print "Generate $level Level Hash: Barcode + Taxonomy ... \n";
+	my %G;
+	my %R;
+	my @bararray;
+	foreach my $bar (sort keys %B){
+		push(@bararray, $bar);
+		foreach my $taxa (keys %G){	push(@{$G{$taxa}{"array"}},0);	}
+		foreach my $seqname (keys %{$B{$bar}}){
+			my $bn = scalar(@bararray);
+			my $taxa = $B{$bar}{$seqname}{$level};
+			my $seq = $B{$bar}{$seqname}{"seq"};
+if($taxa eq ""){print $bar,"\t1",$seqname,"\t1",$seq,"1\n";}
+			unless(exists $G{$taxa}){
+				my @new = (0) x $bn;
+				$G{$taxa}{"array"} =\ @new;
+				$G{$taxa}{"lseq"} = "";
+			}
+			$G{$taxa}{"array"}->[$bn-1] += 1;
+			if(length($seq) > length($G{$taxa}{"lseq"})){	$G{$taxa}{"lseq"} = $seq;	}
+			unless(exists $R{$bar}{$taxa}){	$R{$bar}{$taxa} = 0;	}
+			$R{$bar}{$taxa} += 1;
+		}
+	}
+	my @taxarray = sort keys %G;
+print "$level Level Hash ... Done!!\n";
+
+	############    UNIFRAC OUTPUT    #############
+	open(EXCEL,">summary.$level.table.csv") or die "Failed to open $level Summary Table File\n";
+	open(RCSV,">$file.summary.$level.csv") or die "Failed to open $level R-CSV File\n";
+	open(FSA, ">./$level.tree.fsa") or die "Failed to open $level Tree-FSA File\n";
+	open(SID, ">./$file.$level.sampleID") or die "Failed to open $level SampleID File\n";
+	open(GDIC,">./dic.$level.csv") or die "Failed to open $level Dictionary File\n";
+
+	print GDIC "Tax_ID,", $level, "ID,Domain";
+	print EXCEL "Tax_ID,", $level, "ID,Domain";
+	for(my $tl=0; $tl<=$leveli; $tl++){
+		print GDIC ",", ucfirst($levelarray[$tl]);
+		print EXCEL ",", ucfirst($levelarray[$tl]);
+	}
+	print RCSV "Sam_ID";
+	foreach my $taxa(@taxarray){	print RCSV ",", $taxa;	}
+
+	foreach my $bar(@bararray){
+		print EXCEL ",", $bar;
+		print RCSV "\n", $bar;
+		foreach my $taxa(@taxarray){
+			unless(exists $R{$bar}{$taxa}){	$R{$bar}{$taxa} = 0;	}
+			print RCSV ",", $R{$bar}{$taxa};
+		}
+	}
+
+	my $gcount = 0;
+	foreach my $taxa(@taxarray){
+		my $gcode = $level."000";
+		unless($taxa eq "unclassified"){
+			$gcount++;
+			$gcode = sprintf("$level%03d", $gcount);
+			print FSA ">", $gcode, "\n", $G{$taxa}{"lseq"}, "\n";
+		}
+		print GDIC "\n", $taxa, ",", $gcode, ",", $RDP{$level}{$taxa};
+		print EXCEL "\n", $taxa, ",", $gcode, ",", $RDP{$level}{$taxa};
+		for(my $i=0; $i<scalar(@bararray); $i++){
+			my $abu = $G{$taxa}{"array"}->[$i];
+			print EXCEL ",", $abu;
+			if(($abu>0)&&($taxa !~ "unclassified")){
+				print SID $gcode, "\t", $bararray[$i], "\t", $abu, "\n";
+			}
+		}
+	}
+
+	close EXCEL;
+	close FSA;
+	close SID;
+	close GDIC;
+	close RCSV;
+print "$level Level Summary Output ... Done!!\n\n";
+
+	###############    Tree    ###############
+	open(BSUB,">./tree.$level.bsub") or die $!;
+	print BSUB "#!/bin/bash\n",
+	"#BSUB -J tree.$level\n",
+	"#BSUB -n 8 # request 8 CPUs\n",
+	"#BSUB -q c24 # request memory\n",
+	"#BSUB -o tre.\%J.out # output file \%J=job number\n",
+	"#BSUB -e tre.\%J.err # output error file; \%J=job number\n\n",
+
+	"##### run my application\n",
+	"/research/rr0311/software/clustalw2 -INFILE=$level.tree.fsa -OUTFILE=$level.tree.fasta -OUTPUT=FASTA\n",
+	"rm $level.tree.dnd\n",
+	"/research/rr0311/software/mothur \"#dist.seqs(fasta=$level.tree.fasta,calc=onegap,output=lt,processors=8);clearcut(phylip=$level.tree.phylip.dist)\"\n",
+	"mv $level.tree.phylip.tre $file.$level.tre\n",
+	"perl /research/rr0311/Mothur_SOP/Mothur_SOP_2013.04.16/taxonomy.trans.pl $file.$level.tre\n",
+	"zip -m $file.$level.sampleID.zip $file.$level.sampleID\n",
+	"zip -m $file.$level.tre.zip $file.$level.tre\n",
+	"zip -m $file.$level.zip $file.summary.$level.csv summary.$level.table.csv $file.$level.sampleID.zip dic.$level.csv $file.$level.tre.zip $file.$level.tre.trans";
+
+	close BSUB;
+	system("bsub < tree.$level.bsub");
+}
+

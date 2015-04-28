@@ -1,0 +1,47 @@
+make.contigs(file=stability.files, processors=16)
+summary.seqs(fasta=stability.trim.contigs.fasta)
+screen.seqs(fasta=stability.trim.contigs.fasta, group=stability.contigs.groups, summary=stability.trim.contigs.summary, maxlength=600)
+summary.seqs()
+
+
+mv stability.trim.contigs.good.fasta all.shhh.trim.fasta
+mv stability.contigs.good.groups all.shhh.groups
+java -Xmx1g -jar /storage/research/rr0311/software/rdp_classifier_2.5/rdp_classifier-2.5.jar -q all.shhh.trim.fasta -o all.shhh.trim.rdp.output -f fixrank
+perl /storage/research/rr0311/Mothur_SOP/Mothur_SOP_20131106/RDP_transfer_mothur.pl all.shhh.trim 80
+perl /storage/research/rr0311/Mothur_SOP/Mothur_SOP_20131106/RDP.summary.pl all.shhh.trim.rdp.taxonomy.80
+
+
+unique.seqs(fasta=all.shhh.trim.fasta)
+# pcr.seqs(fasta=/storage/research/rr0311/Mothur_SOP/silva.bacteria.fasta, end=13200, keepdots=F, processors=16)
+# system(mv silva.bacteria.pcr.fasta silva.bacteria.v1v3.fasta)
+align.seqs(fasta=stability.trim.contigs.good.unique.fasta, reference=/storage/research/rr0311/Mothur_SOP/silva.bacteria.v1v3.fasta, processors=16)
+summary.seqs()
+screen.seqs(fasta=all.shhh.trim.unique.align, name=all.shhh.trim.names, group=all.shhh.groups, start=2000, end=13125, maxhomop=8, processors=16)
+summary.seqs()
+filter.seqs(fasta=all.shhh.trim.unique.good.align, vertical=T, trump=, processors=16)
+unique.seqs(fasta=all.shhh.trim.unique.good.filter.fasta, name=all.shhh.trim.good.names)
+summary.seqs()
+# summary.seqs(fasta=all.shhh.trim.unique.align, name=all.shhh.trim.names)
+# summary.seqs(fasta=all.shhh.trim.unique.good.align, name=all.shhh.trim.good.names)
+# summary.seqs(fasta=all.shhh.trim.unique.good.filter.unique.fasta, name=all.shhh.trim.unique.good.filter.names)
+
+
+pre.cluster(fasta=all.shhh.trim.unique.good.filter.unique.fasta, name=all.shhh.trim.unique.good.filter.names, group=all.shhh.good.groups, diffs=2)
+summary.seqs(fasta=all.shhh.trim.unique.good.filter.unique.precluster.fasta, name=all.shhh.trim.unique.good.filter.unique.precluster.names)
+chimera.uchime(fasta=all.shhh.trim.unique.good.filter.unique.precluster.fasta, name=all.shhh.trim.unique.good.filter.unique.precluster.names, group=all.shhh.good.groups, processors=16)
+remove.seqs(accnos=all.shhh.trim.unique.good.filter.unique.precluster.uchime.accnos, fasta=all.shhh.trim.unique.good.filter.unique.precluster.fasta, name=all.shhh.trim.unique.good.filter.unique.precluster.names, group=all.shhh.good.groups)
+summary.seqs(name=current)
+
+
+deunique.seqs(fasta=all.shhh.trim.unique.good.filter.unique.precluster.pick.fasta, name=all.shhh.trim.unique.good.filter.unique.precluster.pick.names)
+get.lineage(fasta=all.shhh.trim.redundant.fasta, group=all.shhh.good.pick.groups, taxonomy=all.shhh.trim.rdp.taxonomy.80, taxon=Bacteria(80);)
+unique.seqs(fasta=all.shhh.trim.redundant.pick.fasta)
+
+
+system(cp all.shhh.trim.rdp.taxonomy.pick.80 all.final.rdp.taxonomy.80)
+system(cp all.shhh.trim.redundant.pick.unique.fasta all.final.unique.fasta)
+system(cp all.shhh.trim.redundant.pick.names all.final.names)
+system(cp all.shhh.trim.redundant.pick.fasta all.final.redundant.fasta)
+system(cp all.shhh.good.pick.pick.groups all.final.groups)
+summary.seqs(fasta=all.final.redundant.fasta)
+

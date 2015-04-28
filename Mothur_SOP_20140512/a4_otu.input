@@ -1,0 +1,24 @@
+##############    a4_otu.input   ###############
+###########    Get Samples for OTU    ##########
+get.groups(group=all.final.groups,accnos=0.otu.sample,fasta=all.final.redundant.fasta,taxonomy=all.final.rdp.taxonomy.80)
+unique.seqs(fasta=all.final.redundant.pick.fasta)
+system(mv all.final.pick.groups all.otu.groups)
+system(mv all.final.rdp.taxonomy.pick.80 all.otu.rdp.taxonomy.80)
+system(mv all.final.redundant.pick.fasta all.otu.redundant.fasta)
+system(mv all.final.redundant.pick.unique.fasta all.otu.unique.fasta)
+system(mv all.final.redundant.pick.names all.otu.names)
+###########   Classify into OTU   ##########
+dist.seqs(fasta=all.otu.unique.fasta, cutoff=0.15, processors=8)
+cluster(column=all.otu.unique.dist, name=all.otu.names, method=average)
+make.shared(list=all.otu.unique.an.list, group=all.otu.groups, label=0.03)
+classify.otu(list=all.otu.unique.an.list, name=all.otu.names, taxonomy=all.otu.rdp.taxonomy.80, label=0.03, cutoff=80)
+get.otulist(list=all.otu.unique.an.list)
+###########    alpha diversity    ##########
+#collect.single(shared=all.otu.unique.an.shared, calc=ace-sobs-chao-invsimpson-shannon, freq=1)
+#rarefaction.single(shared=all.otu.unique.an.shared, freq=1)
+#summary.single(shared=all.otu.unique.an.shared, calc=nseqs-coverage-sobs-invsimpson)
+###########    beta diversity     ##########
+#heatmap.sim(shared=all.otu.unique.an.sorted.shared, calc=braycurtis, fontsize=100)
+#venn(shared=all.otu.unique.an.shared, groups=)
+#summary.shared(shared=all.otu.unique.an.shared, calc=sharedchao, groups=1A-1ANoGenPhi)
+#tree.shared(shared=all.otu.unique.an.shared, calc=braycurtis)
